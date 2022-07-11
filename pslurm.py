@@ -13,6 +13,7 @@ class Status(Enum):
     FAILED = auto()
     CANCELLED = auto()
     CONFIGURING = auto()
+    OUT_OF_MEMORY = auto()
 
 
 submit_pattern = re.compile(r'Submitted batch job (\d+)')
@@ -21,7 +22,10 @@ scontrol_status_pattern = re.compile(r'.*JobState=(.+?) .*')
 
 
 def run_command(command):
-    return subprocess.run([command], shell=True, capture_output=True, text=True).stdout
+    p = subprocess.run([command], shell=True, capture_output=True, text=True)
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr + "\n" + command)
+    return p.stdout
 
 
 def read_file_to_string(filename):
@@ -34,19 +38,27 @@ def is_slurm_installed():
 
 
 class Slurm:
-    def __init__(self, command):
+    def __init__(self, command, flags='', name=None):
         self.delay_between_status_checks = 0.3  # second
         self.status = Status.INIT
         self.command = command
         self.job_id = None
         self.output_file_name = None
+        self.flags = flags
+        if name is None:
+            self.name = 'pslurm'
+        else:
+            self.name = name
         self.run_job()
 
     def __repr__(self):
         return f'Slurm. jobID: {self.job_id}, last status: {self.status}. command: {self.command}'
 
+    def has_failed(self):
+        return self.status in [Status.FAILED, Status.OUT_OF_MEMORY, Status.CANCELLED]
+
     def run_job(self):
-        result = run_command(f'sbatch --wrap="{self.command}"')
+        result = run_command(f'sbatch --job-name={self.name} {self.flags} --wrap="{self.command}"')
         if result is None:
             self.status = Status.FAILED
         else:
@@ -65,7 +77,7 @@ class Slurm:
             self.update_status()
 
     def hasnt_finished(self):
-        return self.status not in [Status.COMPLETED, Status.FAILED, Status.CANCELLED]
+        return self.status != Status.COMPLETED and not self.has_failed()
 
     def update_output_file_name(self):
         result = run_command(f'scontrol show job {self.job_id} -o')
@@ -114,5 +126,7 @@ class Slurm:
                     self.status = Status.CANCELLED
                 elif state == "CONFIGURING":
                     self.status = Status.CONFIGURING
+                elif state == "OUT_OF_MEMORY":
+                    self.status = Status.OUT_OF_MEMORY
                 else:
-                    print(f"pslurm: Unrecognized status: {state}")
+                    print(f"pslurm: Unrecognized status: {state}, job: {self.job_id}")

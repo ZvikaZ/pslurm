@@ -7,6 +7,9 @@ Unlike other slurm wrappers, *pslurm* doesn't need installation, and has a very 
 ## What can it do?
 *pslurm* can *send* job, *monitor* their progress, and *retrieve* their output
 
+### Note
+This package is still in early development stages.
+
 ## Requirements
 - Unix
 - Python 3.7 and above.
@@ -50,7 +53,7 @@ Just copy `pslurm.py`, or, if you prefer *pip*:
     # demonstration of a failed job, running an unexistant (at least, in my system) command:
     slurm = pslurm.Slurm('lszzzzzzzzzz')
     slurm.wait_finished()
-    assert pslurm.Status.FAILED == slurm.get_status()
+    assert pslurm.has_failed()
     
 ### Notes
 

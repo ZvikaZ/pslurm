@@ -1,0 +1,3 @@
+- job/slurm naming?
+- explain flags
+- own exception type?
