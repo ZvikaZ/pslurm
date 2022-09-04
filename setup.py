@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pslurm',
-    version='0.1',
+    version='0.2',
     packages=[''],
     url='https://github.com/ZvikaZ/pslurm',
     license='',

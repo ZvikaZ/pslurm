@@ -2,6 +2,8 @@ from unittest import TestCase
 import os
 
 import pslurm
+from func_slurm import FuncSlurm
+
 
 class TestSlurm(TestCase):
     def test_is_slurm_installed(self):
@@ -33,3 +35,17 @@ class TestSlurm(TestCase):
         slurm.wait_finished()
         self.assertEqual(pslurm.Status.FAILED, slurm.get_status())
 
+    def test_z_func_slurm(self):
+        job = FuncSlurm(check_func_slurm_helper, 3, 4, 5)
+        job.wait_finished()
+        self.assertEqual({'name': 'checking', 'metadata': None, 'some_computation': 3 * 4 + 5}, job.get_result())
+
+    def test_z_func_slurm_wo_wait(self):
+        job = FuncSlurm(check_func_slurm_helper, 3, 4, 5)
+        self.assertRaises(RuntimeError, job.get_result)
+
+
+def check_func_slurm_helper(a, b, c):
+    print("check...")
+    print(a, b, c)
+    return {'name': 'checking', 'metadata': None, 'some_computation': a * b + c}
