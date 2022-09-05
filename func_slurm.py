@@ -13,15 +13,17 @@ import importlib
 from pathlib import Path
 
 from pslurm import Slurm
+from pslurm import Status
 
 
 class FuncSlurm:
-    def __init__(self, func, *args):
+    def __init__(self, func, *args, **kwargs):
         self.python_executable = sys.executable
         self.my_file = __file__
         self.func_file = inspect.getfile(func)
         self.func = func.__name__
         self.args = args
+        self.kwargs = kwargs
         _, self.args_file = tempfile.mkstemp(prefix='pslurm_func_args_', suffix='.pickle.tmp', dir='.')
         _, self.results_file = tempfile.mkstemp(prefix='pslurm_func_results_', suffix='.json.tmp', dir='.')
         self.result = None
@@ -32,16 +34,22 @@ class FuncSlurm:
     def wait_finished(self):
         self.slurm.wait_finished()
 
-    def get_result(self):
-        try:
-            with open(self.results_file, 'r') as f:
-                self.result = json.load(f)
-                os.remove(self.args_file)
-                os.remove(self.results_file)
+    def get_result(self, wait_finished=True):
+        if wait_finished:
+            self.wait_finished()
 
-                return self.result
-        except:
-            raise RuntimeError("Failed to read results file: " + self.results_file)
+        if self.slurm.get_status() == Status.COMPLETED :
+            try:
+                with open(self.results_file, 'r') as f:
+                    self.result = json.load(f)
+                    os.remove(self.args_file)
+                    os.remove(self.results_file)
+
+                    return self.result
+            except:
+                raise RuntimeError("Failed to read results file: " + self.results_file)
+        else:
+            raise RuntimeError("Job's status isn't COMPLETED. " + str(self.slurm))
 
     def __repr__(self):
         return "FuncSlurm({!r})".format(self.__dict__)
@@ -53,7 +61,7 @@ def wrapper(input_file, output_file):
     sys.path.insert(0, os.path.dirname(job.func_file))
     module = importlib.import_module(Path(job.func_file).stem)
     func = vars(module)[job.func]
-    job.result = func(*job.args)
+    job.result = func(*job.args, **job.kwargs)
     with open(output_file, 'w') as f:
         json.dump(job.result, f)
 
