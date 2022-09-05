@@ -3,7 +3,6 @@
 # TODO allow working without slurm
 
 import argparse
-import json
 import pickle
 import sys
 import os
@@ -25,7 +24,7 @@ class FuncSlurm:
         self.args = args
         self.kwargs = kwargs
         _, self.args_file = tempfile.mkstemp(prefix='pslurm_func_args_', suffix='.pickle.tmp', dir='.')
-        _, self.results_file = tempfile.mkstemp(prefix='pslurm_func_results_', suffix='.json.tmp', dir='.')
+        _, self.results_file = tempfile.mkstemp(prefix='pslurm_func_results_', suffix='.pickle.tmp', dir='.')
         self.result = None
         with open(self.args_file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -40,8 +39,8 @@ class FuncSlurm:
 
         if self.slurm.get_status() == Status.COMPLETED :
             try:
-                with open(self.results_file, 'r') as f:
-                    self.result = json.load(f)
+                with open(self.results_file, 'rb') as f:
+                    self.result = pickle.load(f)
                     os.remove(self.args_file)
                     os.remove(self.results_file)
 
@@ -62,8 +61,8 @@ def wrapper(input_file, output_file):
     module = importlib.import_module(Path(job.func_file).stem)
     func = vars(module)[job.func]
     job.result = func(*job.args, **job.kwargs)
-    with open(output_file, 'w') as f:
-        json.dump(job.result, f)
+    with open(output_file, 'wb') as f:
+        pickle.dump(job.result, f)
 
 
 if __name__ == '__main__':
