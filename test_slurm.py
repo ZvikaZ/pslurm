@@ -30,7 +30,7 @@ class TestSlurm(TestCase):
         slurm.wait_finished()
         self.assertEqual(pslurm.Status.COMPLETED, slurm.get_status())
 
-    def get_status_faile(self):
+    def get_status_failed(self):
         slurm = pslurm.Slurm('lszzzzzzzzzz')
         slurm.wait_finished()
         self.assertEqual(pslurm.Status.FAILED, slurm.get_status())

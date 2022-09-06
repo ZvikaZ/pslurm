@@ -28,7 +28,8 @@ class FuncSlurm:
         self.result = None
         with open(self.args_file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
-        self.slurm = Slurm(f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}')
+        self.slurm = Slurm(
+            f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}')
 
     def wait_finished(self):
         self.slurm.wait_finished()
@@ -37,14 +38,20 @@ class FuncSlurm:
         if wait_finished:
             self.wait_finished()
 
-        if self.slurm.get_status() == Status.COMPLETED :
+        if self.slurm.get_status() == Status.COMPLETED:
             try:
                 with open(self.results_file, 'rb') as f:
                     self.result = pickle.load(f)
+                os.remove(self.results_file)
+                # the args_file is also removed by wrapper(..)
+                # however, because these are different machines it sometimes create a .nfs file
+                # the double deletion will hopefully avoid this
+                try:
                     os.remove(self.args_file)
-                    os.remove(self.results_file)
-
-                    return self.result
+                except FileNotFoundError:
+                    # it was already deleted by wrapper(..)
+                    pass
+                return self.result
             except:
                 raise RuntimeError("Failed to read results file: " + self.results_file)
         else:
@@ -57,6 +64,7 @@ class FuncSlurm:
 def wrapper(input_file, output_file):
     with open(input_file, 'rb') as f:
         job = pickle.load(f)
+    os.remove(input_file)
     sys.path.insert(0, os.path.dirname(job.func_file))
     module = importlib.import_module(Path(job.func_file).stem)
     func = vars(module)[job.func]

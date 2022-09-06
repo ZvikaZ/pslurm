@@ -22,7 +22,7 @@ scontrol_status_pattern = re.compile(r'.*JobState=(.+?) .*')
 
 
 def run_command(command):
-    p = subprocess.run([command], shell=True, capture_output=True, text=True)
+    p = subprocess.run([command], shell=True, capture_output=True, text=True, close_fds=True)
     if p.returncode != 0:
         raise RuntimeError(p.stderr + "\n" + command)
     return p.stdout
