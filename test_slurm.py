@@ -42,6 +42,8 @@ class TestSlurm(TestCase):
     def test_z_func_slurm_wo_wait(self):
         job = FuncSlurm(check_func_slurm_helper, 3, 4, c=5)
         self.assertRaises(RuntimeError, job.get_result, wait_finished=False)
+        os.remove(job.results_file)
+        os.remove(job.args_file)
 
 
 def check_func_slurm_helper(a, b, c):
