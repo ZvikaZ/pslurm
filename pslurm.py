@@ -104,29 +104,39 @@ class Slurm:
         if self.hasnt_finished():
             # scontrol has disadvantage that it's only for running, or recently finished
             # sacct has disadvantage that it doesn't work on some of our machines
-            # currently using scontrol
-            # if sacct is needed, see usage reference at jslurm
+            # currently using scontrol, and if it fails, we use sacct
             state = None
-            result = run_command(f'scontrol show job {self.job_id}')
-            m = scontrol_status_pattern.search(result)
-            if m:
-                state = m.group(1)
-                if state == "COMPLETED":
-                    self.status = Status.COMPLETED
-                elif state == "FAILED":
-                    self.status = Status.FAILED
-                elif state == "PENDING":
-                    self.status = Status.PENDING
-                elif state == "RUNNING":
-                    self.status = Status.RUNNING
-                elif state == "COMPLETING":
-                    # for my needs they are identical
-                    self.status = Status.RUNNING
-                elif state == "CANCELLED":
-                    self.status = Status.CANCELLED
-                elif state == "CONFIGURING":
-                    self.status = Status.CONFIGURING
-                elif state == "OUT_OF_MEMORY":
-                    self.status = Status.OUT_OF_MEMORY
-                else:
-                    print(f"pslurm: Unrecognized status: {state}, job: {self.job_id}")
+            try:
+                result = run_command(f'scontrol show job {self.job_id}')
+                m = scontrol_status_pattern.search(result)
+                if m:
+                    state = m.group(1)
+            except:
+                # it might take sometime for 'sacct' to get an answer, try few times
+                for i in range(10):
+                    result = run_command(f'sacct -j {self.job_id} --noheader --brief --parsable2 --delimiter=,')
+                    if result:
+                        break
+                    time.sleep(self.delay_between_status_checks)
+                if not result:
+                    raise RuntimeError("pslurm: running 'sacct' failed because of invalid job id " + str(self.job_id))
+                state = result.split(',')[1]
+            if state == "COMPLETED":
+                self.status = Status.COMPLETED
+            elif state == "FAILED":
+                self.status = Status.FAILED
+            elif state == "PENDING":
+                self.status = Status.PENDING
+            elif state == "RUNNING":
+                self.status = Status.RUNNING
+            elif state == "COMPLETING":
+                # for my needs they are identical
+                self.status = Status.RUNNING
+            elif state == "CANCELLED":
+                self.status = Status.CANCELLED
+            elif state == "CONFIGURING":
+                self.status = Status.CONFIGURING
+            elif state == "OUT_OF_MEMORY":
+                self.status = Status.OUT_OF_MEMORY
+            else:
+                print(f"pslurm: Unrecognized status: {state}, job: {self.job_id}")
