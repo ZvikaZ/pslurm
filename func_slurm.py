@@ -9,6 +9,7 @@ import inspect
 import tempfile
 import importlib
 import warnings
+import time
 from pathlib import Path
 
 from pslurm import Slurm
@@ -50,13 +51,16 @@ class FuncSlurm:
         self.slurm.wait_finished()
 
     def get_result(self, wait_finished=True):
-        if wait_finished:
-            self.wait_finished()
-
         try:
-            status = self.slurm.get_status()
+            if wait_finished:
+                self.wait_finished()
+            try:
+                status = self.slurm.get_status()
+            except:
+                status = None
         except:
             status = None
+
         if status == Status.COMPLETED:
             try:
                 with open(self.results_file, 'rb') as f:
@@ -76,6 +80,7 @@ class FuncSlurm:
         else:
             if self.trial_num < MAX_NUM_OF_RETRIES:
                 warnings.warn(f"func_slurm: couldn't read status on trial #{self.trial_num}, restarting")
+                time.sleep(2)  # wait 2 seconds, something might get synced, or otherwise improved, meanwhile
                 self.restart()
                 return self.get_result(wait_finished)
             else:
