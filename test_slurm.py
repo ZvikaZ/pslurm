@@ -39,6 +39,11 @@ class TestSlurm(TestCase):
         job = FuncSlurm(check_func_slurm_helper, 3, 4, c=5)
         self.assertEqual({'name': 'checking', 'metadata': None, 'some_computation': 3 * 4 + 5}, job.get_result())
 
+    def test_z_func_slurm_restart(self):
+        job = FuncSlurm(check_func_slurm_helper, 3, 4, c=5)
+        job.restart()
+        self.assertEqual({'name': 'checking', 'metadata': None, 'some_computation': 3 * 4 + 5}, job.get_result())
+
     def test_z_func_slurm_wo_wait(self):
         job = FuncSlurm(check_func_slurm_helper, 3, 4, c=5)
         self.assertRaises(RuntimeError, job.get_result, wait_finished=False)

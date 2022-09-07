@@ -113,8 +113,13 @@ class Slurm:
                     state = m.group(1)
             except:
                 # it might take sometime for 'sacct' to get an answer, try few times
+                result = None
                 for i in range(10):
-                    result = run_command(f'sacct -j {self.job_id} --noheader --brief --parsable2 --delimiter=,')
+                    try:
+                        result = run_command(f'sacct -j {self.job_id} --noheader --brief --parsable2 --delimiter=,')
+                    except Exception as e:
+                        if i == 9:
+                            raise RuntimeError(e)
                     if result:
                         break
                     time.sleep(self.delay_between_status_checks)
