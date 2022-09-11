@@ -21,23 +21,24 @@ MAX_NUM_OF_RETRIES = 5
 class FuncSlurm:
     def __init__(self, func, *args, **kwargs):
         self.python_executable = sys.executable
+        m = inspect.getmodule(func)
+        depth = m.__name__.count('.')
+        self.module_root = str(Path(m.__file__).parents[depth])
+        self.module = m.__name__
         self.my_file = __file__
-        self.func_file = inspect.getfile(func)
         self.func_name = func.__name__
         self.args = args
         self.kwargs = kwargs
         self.trial_num = 1
         self.result = None
-        self.args_file = None
-        self.results_file = None
-        self.slurm = None
-        self.start()
-
-    def start(self):
         fd1, self.args_file = tempfile.mkstemp(prefix='pslurm_func_args_', suffix='.pickle.tmp', dir='.')
         fd2, self.results_file = tempfile.mkstemp(prefix='pslurm_func_results_', suffix='.pickle.tmp', dir='.')
         os.close(fd1)
         os.close(fd2)
+        self.slurm = None
+        self.start()
+
+    def start(self):
         with open(self.args_file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
         self.slurm = Slurm(
@@ -88,15 +89,15 @@ class FuncSlurm:
                 raise RuntimeError("Job's status isn't COMPLETED. " + str(self.slurm))
 
     def __repr__(self):
-        return "FuncSlurm({!r})".format(self.__dict__)
+        return "FuncSlurm({!r})".format({x: self.__dict__[x] for x in self.__dict__ if x not in ['args', 'kwargs']})
 
 
 def wrapper(input_file, output_file):
     with open(input_file, 'rb') as f:
         job = pickle.load(f)
     os.remove(input_file)
-    sys.path.insert(0, os.path.dirname(job.func_file))
-    module = importlib.import_module(Path(job.func_file).stem)
+    sys.path.insert(0, job.module_root)
+    module = importlib.import_module(job.module)
     func = vars(module)[job.func_name]
     job.result = func(*job.args, **job.kwargs)
     with open(output_file, 'wb') as f:
