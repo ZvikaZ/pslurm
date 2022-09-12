@@ -1,4 +1,6 @@
 # TODO document
+# TODO higher API
+# TODO dont create temp files in .
 
 import argparse
 import pickle
@@ -15,6 +17,7 @@ from pslurm import Slurm
 from pslurm import Status
 
 MAX_NUM_OF_RETRIES = 5
+MAX_MEMORY_TO_REQUEST = 100  # GB
 
 use_slurm = True
 
@@ -25,7 +28,7 @@ def disable_slurm():
 
 
 class FuncSlurm:
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func, *args, mem=1, **kwargs):
         self.python_executable = sys.executable
         m = inspect.getmodule(func)
         depth = m.__name__.count('.')
@@ -37,6 +40,7 @@ class FuncSlurm:
         self.func_name = func.__name__
         self.args = args
         self.kwargs = kwargs
+        self.mem = mem
         self.trial_num = 1
         self.result = None
         self.slurm = None
@@ -53,7 +57,8 @@ class FuncSlurm:
         with open(self.args_file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
             self.slurm = Slurm(
-                f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}')
+                f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}',
+                flags=f'--mem={self.mem}G')
 
     def restart(self):
         assert use_slurm
@@ -93,6 +98,15 @@ class FuncSlurm:
                 return self.result
             except:
                 raise RuntimeError("Failed to read results file: " + self.results_file)
+        elif status == Status.OUT_OF_MEMORY:
+            if self.mem >= MAX_MEMORY_TO_REQUEST:
+                raise MemoryError("Job's memory isn't enough, raised up to " + str(self.mem) + "G")
+            self.mem *= 2
+            if self.mem > MAX_MEMORY_TO_REQUEST:
+                self.mem = MAX_MEMORY_TO_REQUEST
+            warnings.warn("Out of memory, increasing to " + str(self.mem) + "G")
+            self.restart()
+            return self.get_result(wait_finished)
         else:
             if self.trial_num < MAX_NUM_OF_RETRIES:
                 warnings.warn(f"func_slurm: couldn't read status on trial #{self.trial_num}, restarting")

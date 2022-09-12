@@ -41,6 +41,19 @@ class TestSlurm(TestCase):
         job = FuncSlurm(check_func_slurm_helper, 3, 4, c=5)
         self.assertEqual({'name': 'checking', 'metadata': None, 'some_computation': 3 * 4 + 5}, job.get_result())
 
+    def test_z_func_slurm_out_of_memory_good(self):
+        from func_slurm import use_slurm
+        assert use_slurm
+        job = FuncSlurm(check_func_slurm_helper_out_of_memory, 3, 4, c=5, size=4)
+        self.assertEqual({'name': 'checking', 'metadata': None, 'some_computation': 3 * 4 + 5}, job.get_result())
+
+    def test_z_func_slurm_out_of_memory_too_much(self):
+        from func_slurm import use_slurm
+        assert use_slurm
+        job = FuncSlurm(check_func_slurm_helper_out_of_memory, 3, 4, c=5, size=100)
+        self.assertRaises(MemoryError, job.get_result)
+        os.remove(job.results_file)
+
     def test_z_func_without_slurm(self):
         from func_slurm import disable_slurm
         disable_slurm()
@@ -67,5 +80,14 @@ class TestSlurm(TestCase):
 
 def check_func_slurm_helper(a, b, c):
     print("check...")
+    print(a, b, c)
+    return {'name': 'checking', 'metadata': None, 'some_computation': a * b + c}
+
+
+def check_func_slurm_helper_out_of_memory(a, b, c, size):
+    print("check out of memory...")
+    temp = []
+    for i in range(size):
+        temp.append(list(range(int(1e8))))
     print(a, b, c)
     return {'name': 'checking', 'metadata': None, 'some_computation': a * b + c}
