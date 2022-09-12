@@ -20,11 +20,18 @@ MAX_NUM_OF_RETRIES = 5
 MAX_MEMORY_TO_REQUEST = 100  # GB
 
 use_slurm = True
+buffered_printing = True
 
 
 def disable_slurm():
     global use_slurm
     use_slurm = False
+
+
+def disable_buffered_printing():
+    # add '-u' to python command; makes prints show immediately
+    global buffered_printing
+    buffered_printing = False
 
 
 class FuncSlurm:
@@ -56,8 +63,12 @@ class FuncSlurm:
     def start(self):
         with open(self.args_file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+            if buffered_printing:
+                python_flags = ''
+            else:
+                python_flags = '-u'
             self.slurm = Slurm(
-                f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}',
+                f'{self.python_executable} {python_flags} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}',
                 flags=f'--mem={self.mem}G')
 
     def restart(self):
