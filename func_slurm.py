@@ -1,6 +1,5 @@
 # TODO document
 # TODO higher API
-# TODO dont create temp files in .
 
 import argparse
 import pickle
@@ -35,7 +34,8 @@ def disable_buffered_printing():
 
 
 class FuncSlurm:
-    def __init__(self, func, *args, mem=1, **kwargs):
+    def __init__(self, func, *args, mem=1, slurm_flags='', **kwargs):
+        # slurm_flags are additional flags to slurm, besides mem
         self.python_executable = sys.executable
         m = inspect.getmodule(func)
         depth = m.__name__.count('.')
@@ -48,6 +48,7 @@ class FuncSlurm:
         self.args = args
         self.kwargs = kwargs
         self.mem = mem
+        self.slurm_flags = slurm_flags
         self.trial_num = 1
         self.result = None
         self.slurm = None
@@ -69,7 +70,7 @@ class FuncSlurm:
                 python_flags = '-u'
             self.slurm = Slurm(
                 f'{self.python_executable} {python_flags} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}',
-                flags=f'--mem={self.mem}G')
+                flags=f'--mem={self.mem}G {self.slurm_flags}')
 
     def restart(self):
         assert use_slurm
