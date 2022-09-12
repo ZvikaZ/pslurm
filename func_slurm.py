@@ -1,5 +1,4 @@
 # TODO document
-# TODO allow working without slurm
 
 import argparse
 import pickle
@@ -17,6 +16,13 @@ from pslurm import Status
 
 MAX_NUM_OF_RETRIES = 5
 
+use_slurm = True
+
+
+def disable_slurm():
+    global use_slurm
+    use_slurm = False
+
 
 class FuncSlurm:
     def __init__(self, func, *args, **kwargs):
@@ -25,6 +31,8 @@ class FuncSlurm:
         depth = m.__name__.count('.')
         self.module_root = str(Path(m.__file__).parents[depth])
         self.module = m.__name__
+        if self.module == '__main__':
+            self.module = Path(inspect.getfile(func)).stem
         self.my_file = __file__
         self.func_name = func.__name__
         self.args = args
@@ -36,13 +44,16 @@ class FuncSlurm:
         os.close(fd1)
         os.close(fd2)
         self.slurm = None
-        self.start()
+        if use_slurm:
+            self.start()
+        else:
+            self.result = func(*self.args, **self.kwargs)
 
     def start(self):
         with open(self.args_file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
-        self.slurm = Slurm(
-            f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}')
+            self.slurm = Slurm(
+                f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}')
 
     def restart(self):
         self.trial_num += 1
@@ -52,6 +63,9 @@ class FuncSlurm:
         self.slurm.wait_finished()
 
     def get_result(self, wait_finished=True):
+        if not use_slurm:
+            return self.result
+
         try:
             if wait_finished:
                 self.wait_finished()
