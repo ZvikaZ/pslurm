@@ -39,12 +39,12 @@ class FuncSlurm:
         self.kwargs = kwargs
         self.trial_num = 1
         self.result = None
-        fd1, self.args_file = tempfile.mkstemp(prefix='pslurm_func_args_', suffix='.pickle.tmp', dir='.')
-        fd2, self.results_file = tempfile.mkstemp(prefix='pslurm_func_results_', suffix='.pickle.tmp', dir='.')
-        os.close(fd1)
-        os.close(fd2)
         self.slurm = None
         if use_slurm:
+            fd1, self.args_file = tempfile.mkstemp(prefix='pslurm_func_args_', suffix='.pickle.tmp', dir='.')
+            fd2, self.results_file = tempfile.mkstemp(prefix='pslurm_func_results_', suffix='.pickle.tmp', dir='.')
+            os.close(fd1)
+            os.close(fd2)
             self.start()
         else:
             self.result = func(*self.args, **self.kwargs)
@@ -56,6 +56,7 @@ class FuncSlurm:
                 f'{self.python_executable} {self.my_file} --input_file {self.args_file} --output_file {self.results_file}')
 
     def restart(self):
+        assert use_slurm
         self.trial_num += 1
         self.start()
 
